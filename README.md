@@ -18,17 +18,17 @@ A small wrapper around `yt-dlp` with a queue, playlist guardrails, and the forma
 
 ## What it does
 
-| | |
+| Feature | Details |
 |---|---|
-| 🎞 | **Up to 4K.** 2160p · 1440p · 1080p · 720p · 480p — any container, or pick MP4 / WebM. |
-| 🎧 | **Audio.** MP3 · M4A · Opus · WAV · FLAC, extracted with ffmpeg. |
-| 📥 | **Queue.** Multi-URL paste, configurable concurrency, per-job progress + log panel. |
-| 🛡 | **Playlist guardrails.** Default treats `&list=...` as a single video so YouTube share links don't snowball into 200-video downloads. Switch to *Ask* or *All* when you want it. |
-| 🔄 | **Self-updating engine.** `yt-dlp` runs `-U` on every launch. |
-| 🌐 | **English + 繁體中文** UI. |
-| 🌓 | **Dark / light / system** theme. |
-| 🎬 | **Subtitles · SponsorBlock · embed thumbnail/metadata/chapters · cookies-from-browser · rate limit.** |
-| 💾 | **Portable.** Settings live in `settings.json` next to the exe. Nothing in the registry, nothing in AppData. |
+| Video up to 4K | 2160p · 1440p · 1080p · 720p · 480p — any container, or pick MP4 / WebM. |
+| Audio | MP3 · M4A · Opus · WAV · FLAC, extracted with ffmpeg. |
+| Queue | Multi-URL paste, configurable concurrency, per-job progress + log panel. |
+| Playlist guardrails | Default treats `&list=...` as a single video so YouTube share links don't snowball into 200-video downloads. Switch to *Ask* or *All* when you want it. |
+| Self-updating engine | `yt-dlp` runs `-U` on every launch. |
+| Languages | English + 繁體中文. |
+| Theme | Dark · light · system. |
+| yt-dlp options | Subtitles, SponsorBlock, embed thumbnail / metadata / chapters, cookies-from-browser, rate limit, retries, passthrough args. |
+| Portable | Settings live in `settings.json` next to the exe. Nothing in the registry, nothing in AppData. |
 
 ## Download
 
