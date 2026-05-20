@@ -8,7 +8,7 @@
 
 [Download latest](https://github.com/ratatabananana-bit/Spool/releases/latest) · [Issues](https://github.com/ratatabananana-bit/Spool/issues)
 
-<img src="assets/hero.png" alt="Spool main window" width="900" />
+<img src="assets/hero-v2.png" alt="Spool main window" width="900" />
 
 </div>
 
