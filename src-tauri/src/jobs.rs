@@ -447,8 +447,14 @@ fn spawn_running(
             args.push("--retries".into());
             args.push(n.to_string());
         }
+        // Audio is always extracted at best quality (`--audio-quality 0`).
+        // No user-facing knob — picking an audio preset implies highest bitrate.
+        let is_audio_mode = args.iter().any(|a| a == "-x");
+        if is_audio_mode {
+            args.push("--audio-quality".into());
+            args.push("0".into());
+        }
         if let Some(extra) = s.extra_args.as_ref().filter(|v| !v.trim().is_empty()) {
-            // Whitespace-split is good enough for typical flag passthrough.
             for tok in extra.split_whitespace() {
                 args.push(tok.to_string());
             }

@@ -54,6 +54,8 @@ pub struct Settings {
     #[serde(default)]
     pub extra_args: Option<String>, // power-user passthrough, whitespace-split
     #[serde(default)]
+    pub audio_quality: Option<String>, // yt-dlp --audio-quality value: "0" (best) .. "10" (worst), or kbps like "192K"
+    #[serde(default)]
     pub url_history: Vec<String>,
     #[serde(default)]
     pub output_dir_history: Vec<String>,
@@ -91,6 +93,7 @@ fn defaults() -> Settings {
         retries: Some(10),
         keep_video: Some(false),
         extra_args: Some("".into()),
+        audio_quality: Some("0".into()),
         url_history: vec![],
         output_dir_history: vec![],
         window_w: Some(960),
@@ -158,6 +161,7 @@ impl SettingsStore {
             retries: parsed.retries.or(d.retries),
             keep_video: parsed.keep_video.or(d.keep_video),
             extra_args: parsed.extra_args.or(d.extra_args),
+            audio_quality: parsed.audio_quality.or(d.audio_quality),
             url_history: parsed.url_history,
             output_dir_history: parsed.output_dir_history,
             window_w: parsed.window_w.or(d.window_w),
