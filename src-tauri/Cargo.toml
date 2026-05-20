@@ -1,0 +1,36 @@
+[package]
+name = "yt-portable"
+version = "0.1.0"
+edition = "2021"
+description = "Portable YouTube downloader (yt-dlp GUI)"
+authors = ["yt-portable"]
+license = "MIT"
+
+[lib]
+name = "yt_portable_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "Spool"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+parking_lot = "0.12"
+dirs = "5"
+tokio = { version = "1", features = ["sync", "macros", "rt"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

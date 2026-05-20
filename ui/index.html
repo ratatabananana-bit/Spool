@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>yt-portable</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="root" class="ytp-root" data-theme="light">
+    <div class="ytp-titlebar">
+      <div class="ytp-titlebar__brand">
+        <div class="ytp-logo">
+          <svg viewBox="0 0 64 64" width="14" height="14" aria-hidden="true">
+            <rect x="2" y="2" width="60" height="60" rx="10" fill="currentColor"/>
+            <polygon points="22,14 42,14 32,36" fill="var(--surface-2)"/>
+            <path d="M14 42 V52 H50 V42" fill="none" stroke="var(--surface-2)" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"/>
+          </svg>
+        </div>
+        <span><b data-i18n="app.brand">Spool</b> <span class="ytp-titlebar__sub" id="queueStatus" data-i18n="app.idle">· idle</span></span>
+      </div>
+      <div class="ytp-titlebar__spacer"></div>
+      <div class="ytp-titlebar__controls">
+        <button class="ytp-tbtn" id="winMin" data-i18n-title="tb.win.min" title="Minimize" aria-label="Minimize">
+          <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1"><path d="M2 6h8"/></svg>
+        </button>
+        <button class="ytp-tbtn" id="winMax" data-i18n-title="tb.win.max" title="Maximize" aria-label="Maximize">
+          <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1"><rect x="2.5" y="2.5" width="7" height="7"/></svg>
+        </button>
+        <button class="ytp-tbtn ytp-tbtn--close" id="winClose" data-i18n-title="tb.win.close" title="Close" aria-label="Close">
+          <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1"><path d="M3 3l6 6M9 3l-6 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="ytp-toolbar ytp-toolbar--top">
+      <div class="ytp-input-wrap">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5l3-3"/><path d="M9 4l1-1a3 3 0 014.24 4.24L13 8.5"/><path d="M7 11.5L6 12.5A3 3 0 011.76 8.26L3 7"/></svg>
+        <textarea class="ytp-input ytp-input--multi" id="urlInput" rows="1" data-i18n-placeholder="tb.url.placeholder" placeholder="Paste one or more YouTube URLs (one per line)"></textarea>
+      </div>
+      <button class="ytp-btn ytp-btn--primary" id="addBtn">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>
+        <span data-i18n="tb.add">Add</span>
+      </button>
+      <button class="ytp-btn ytp-btn--icon" id="settingsBtn" data-i18n-title="tb.settings.title" title="Settings">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M8 1.5v1.6M8 12.9v1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M1.5 8h1.6M12.9 8h1.6M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></svg>
+      </button>
+    </div>
+
+    <div class="ytp-toolbar ytp-toolbar--bottom">
+      <button class="ytp-select" id="formatBtn" data-i18n-title="tb.format.title" title="Format preset" type="button">
+        <span class="ytp-select__label" data-i18n="tb.format.label">FMT</span>
+        <span class="ytp-select__value" id="formatValue">1080p</span>
+      </button>
+      <div class="ytp-select__menu" id="formatMenu" hidden>
+        <div class="ytp-select__group" data-i18n="fmt.group.best">Video · Best</div>
+        <button data-fmt="Best" type="button" data-i18n="fmt.best">Best (any)</button>
+        <div class="ytp-select__group" data-i18n="fmt.group.2160">Video · 2160p (4K)</div>
+        <button data-fmt="2160p" type="button" data-i18n="fmt.2160.any">2160p (any)</button>
+        <button data-fmt="2160p MP4" type="button" data-i18n="fmt.2160.mp4">2160p MP4</button>
+        <button data-fmt="2160p WebM" type="button" data-i18n="fmt.2160.webm">2160p WebM</button>
+        <div class="ytp-select__group" data-i18n="fmt.group.1440">Video · 1440p (2K)</div>
+        <button data-fmt="1440p" type="button" data-i18n="fmt.1440.any">1440p (any)</button>
+        <button data-fmt="1440p MP4" type="button" data-i18n="fmt.1440.mp4">1440p MP4</button>
+        <button data-fmt="1440p WebM" type="button" data-i18n="fmt.1440.webm">1440p WebM</button>
+        <div class="ytp-select__group" data-i18n="fmt.group.1080">Video · 1080p</div>
+        <button data-fmt="1080p" type="button" data-i18n="fmt.1080.any">1080p (any)</button>
+        <button data-fmt="1080p MP4" type="button" data-i18n="fmt.1080.mp4">1080p MP4</button>
+        <button data-fmt="1080p WebM" type="button" data-i18n="fmt.1080.webm">1080p WebM</button>
+        <div class="ytp-select__group" data-i18n="fmt.group.720">Video · 720p</div>
+        <button data-fmt="720p" type="button" data-i18n="fmt.720.any">720p (any)</button>
+        <button data-fmt="720p MP4" type="button" data-i18n="fmt.720.mp4">720p MP4</button>
+        <button data-fmt="720p WebM" type="button" data-i18n="fmt.720.webm">720p WebM</button>
+        <div class="ytp-select__group" data-i18n="fmt.group.480">Video · 480p</div>
+        <button data-fmt="480p" type="button" data-i18n="fmt.480.any">480p (any)</button>
+        <div class="ytp-select__group" data-i18n="fmt.group.audio">Audio only</div>
+        <button data-fmt="Audio MP3" type="button" data-i18n="fmt.audio.mp3">Audio · MP3</button>
+        <button data-fmt="Audio M4A" type="button" data-i18n="fmt.audio.m4a">Audio · M4A</button>
+        <button data-fmt="Audio Opus" type="button" data-i18n="fmt.audio.opus">Audio · Opus</button>
+        <button data-fmt="Audio WAV" type="button" data-i18n="fmt.audio.wav">Audio · WAV</button>
+        <button data-fmt="Audio FLAC" type="button" data-i18n="fmt.audio.flac">Audio · FLAC</button>
+      </div>
+      <button class="ytp-select" id="playlistBtn" data-i18n-title="tb.playlist.title" title="Playlist mode" type="button">
+        <span class="ytp-select__label" data-i18n="tb.playlist.label">LIST</span>
+        <span class="ytp-select__value" id="playlistValue">off</span>
+      </button>
+      <div class="ytp-select__menu" id="playlistMenu" hidden>
+        <button data-pl="single" type="button" data-i18n="pl.off.label">Off · single video</button>
+        <button data-pl="ask" type="button" data-i18n="pl.ask.label">Ask · banner if playlist</button>
+        <button data-pl="all" type="button" data-i18n="pl.all.label">All · download every entry</button>
+      </div>
+      <button class="ytp-folder" id="folderBtn" data-i18n-title="tb.folder.title" title="Output folder · click for recent or browse" type="button">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5A1.5 1.5 0 013.5 3h2.6l1.4 1.6h5A1.5 1.5 0 0114 6.1V11.5A1.5 1.5 0 0112.5 13h-9A1.5 1.5 0 012 11.5z"/></svg>
+        <span id="folderPath">—</span>
+        <span class="ytp-folder__caret"></span>
+      </button>
+      <div class="ytp-select__menu ytp-folder__menu" id="folderMenu" hidden>
+        <div class="ytp-select__group" data-i18n="folder.recent">Recent folders</div>
+        <div id="folderRecent"></div>
+        <div class="ytp-select__divider"></div>
+        <button data-act="browse" type="button" data-i18n="folder.choose">Choose folder…</button>
+      </div>
+      <span class="ytp-toolbar__push"></span>
+    </div>
+
+    <main id="main" class="ytp-main">
+      <div class="ytp-banners" id="banners"></div>
+      <div class="ytp-empty" id="emptyState">
+        <div class="ytp-empty__icon">
+          <svg viewBox="0 0 16 16" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v9M4.5 8.5L8 12l3.5-3.5"/></svg>
+        </div>
+        <div class="ytp-empty__title" data-i18n="empty.title">No downloads yet</div>
+        <div class="ytp-empty__hint" id="emptyHint">
+          Paste a YouTube URL above, drop a <span class="ytp-empty__tag">.txt</span> file of URLs anywhere on this window,
+          or press <kbd>Ctrl</kbd>+<kbd>V</kbd> to add from clipboard.
+        </div>
+      </div>
+      <div class="ytp-queue" id="queue" hidden>
+        <div class="ytp-queue__head">
+          <div></div>
+          <div data-i18n="queue.col.title">Title</div>
+          <div class="ytp-queue__head-cell-right" data-i18n="queue.col.size">Size</div>
+          <div class="ytp-queue__head-cell-right" data-i18n="queue.col.speed">Speed</div>
+          <div data-i18n="queue.col.progress">Progress</div>
+          <div class="ytp-queue__head-cell-right" data-i18n="queue.col.actions">Actions</div>
+        </div>
+        <div class="ytp-queue__list" id="queueList"></div>
+        <div class="ytp-queue__footer" id="queueFooter">
+          <span id="queueSummary"></span>
+          <span class="ytp-statusbar__push"></span>
+          <button class="ytp-btn ytp-btn--ghost" id="clearDoneBtn" type="button" data-i18n="queue.clear.done">Clear done</button>
+          <button class="ytp-btn ytp-btn--ghost" id="clearAllBtn" type="button" data-i18n="queue.clear.all">Clear all</button>
+        </div>
+      </div>
+    </main>
+
+    <div class="ytp-settings" id="settingsPanel" hidden>
+      <div class="ytp-settings__panel">
+        <div class="ytp-settings__head">
+          <h2 data-i18n="set.title">Settings</h2>
+          <button class="ytp-btn ytp-btn--icon ytp-btn--ghost" id="settingsClose" data-i18n-title="log.close" title="Close">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+          </button>
+        </div>
+        <div class="ytp-settings__body">
+          <div class="ytp-settings__group">
+            <h3 data-i18n="set.group.output">Output</h3>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.output.dir">Default folder</div>
+                <div class="ytp-field-hint" id="setOutputDirText">—</div>
+              </div>
+              <button class="ytp-btn" id="setOutputDirBtn" data-i18n="set.output.browse">Browse…</button>
+            </div>
+            <div class="ytp-field">
+              <label data-i18n="set.output.template">Filename template</label>
+              <input class="ytp-input ytp-set-input" id="setFilenameTemplate" />
+            </div>
+          </div>
+
+          <div class="ytp-settings__group">
+            <h3 data-i18n="set.group.queue">Queue</h3>
+            <div class="ytp-field">
+              <label data-i18n="set.queue.concurrency">Concurrent downloads</label>
+              <input class="ytp-num" type="number" min="1" max="8" id="setConcurrency" />
+            </div>
+            <div class="ytp-field">
+              <label data-i18n="set.queue.default_format">Default format</label>
+              <select class="ytp-select-native" id="setDefaultFormat">
+                <option value="Best">Best</option>
+                <option value="2160p">2160p (4K)</option>
+                <option value="2160p MP4">2160p MP4</option>
+                <option value="2160p WebM">2160p WebM</option>
+                <option value="1440p">1440p (2K)</option>
+                <option value="1440p MP4">1440p MP4</option>
+                <option value="1440p WebM">1440p WebM</option>
+                <option value="1080p">1080p</option>
+                <option value="1080p MP4">1080p MP4</option>
+                <option value="1080p WebM">1080p WebM</option>
+                <option value="720p">720p</option>
+                <option value="720p MP4">720p MP4</option>
+                <option value="720p WebM">720p WebM</option>
+                <option value="480p">480p</option>
+                <option value="Audio MP3">Audio · MP3</option>
+                <option value="Audio M4A">Audio · M4A</option>
+                <option value="Audio Opus">Audio · Opus</option>
+                <option value="Audio WAV">Audio · WAV</option>
+                <option value="Audio FLAC">Audio · FLAC</option>
+              </select>
+            </div>
+            <div class="ytp-field">
+              <label data-i18n="set.queue.playlist_mode">Playlist mode</label>
+              <div class="ytp-seg" id="setPlaylistMode">
+                <button data-pl="single" type="button" data-i18n="set.pl.off">Off</button>
+                <button data-pl="ask" type="button" data-i18n="set.pl.ask">Ask</button>
+                <button data-pl="all" type="button" data-i18n="set.pl.all">All</button>
+              </div>
+            </div>
+            <div class="ytp-field">
+              <label data-i18n="set.queue.autoclear">Auto-clear completed after</label>
+              <select class="ytp-select-native" id="setAutoClear">
+                <option value="0" data-i18n="set.autoclear.never">Never</option>
+                <option value="1" data-i18n="set.autoclear.1d">1 day</option>
+                <option value="7" data-i18n="set.autoclear.7d">7 days</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="ytp-settings__group">
+            <h3 data-i18n="set.group.options">yt-dlp options</h3>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.subs">Download subtitles</div>
+                <div class="ytp-field-hint">--write-subs --write-auto-subs --convert-subs srt</div>
+              </div>
+              <button class="ytp-toggle" id="setWriteSubs" type="button"></button>
+            </div>
+            <div class="ytp-field" id="setSubLangsRow">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.sub_langs">Subtitle languages</div>
+                <div class="ytp-field-hint">--sub-langs · pattern, e.g. en.* · en,fr · all</div>
+              </div>
+              <input class="ytp-input ytp-set-input" id="setSubLangs" placeholder="en.*" />
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.sponsor">Skip sponsor segments (SponsorBlock)</div>
+                <div class="ytp-field-hint">--sponsorblock-remove sponsor,selfpromo,interaction</div>
+              </div>
+              <button class="ytp-toggle" id="setSponsorBlock" type="button"></button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.embed_thumb">Embed thumbnail</div>
+                <div class="ytp-field-hint">--embed-thumbnail · needs ffmpeg</div>
+              </div>
+              <button class="ytp-toggle" id="setEmbedThumbnail" type="button"></button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.embed_meta">Embed metadata</div>
+                <div class="ytp-field-hint">--embed-metadata · title, uploader, etc.</div>
+              </div>
+              <button class="ytp-toggle" id="setEmbedMetadata" type="button"></button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.embed_chap">Embed chapters</div>
+                <div class="ytp-field-hint">--embed-chapters</div>
+              </div>
+              <button class="ytp-toggle" id="setEmbedChapters" type="button"></button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.restrict">Restrict filenames to ASCII</div>
+                <div class="ytp-field-hint">--restrict-filenames</div>
+              </div>
+              <button class="ytp-toggle" id="setRestrictFilenames" type="button"></button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.write_thumb">Save thumbnail as file</div>
+                <div class="ytp-field-hint">--write-thumbnail</div>
+              </div>
+              <button class="ytp-toggle" id="setWriteThumbnail" type="button"></button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.write_info">Save .info.json</div>
+                <div class="ytp-field-hint">--write-info-json · full metadata dump</div>
+              </div>
+              <button class="ytp-toggle" id="setWriteInfoJson" type="button"></button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.write_desc">Save .description</div>
+                <div class="ytp-field-hint">--write-description</div>
+              </div>
+              <button class="ytp-toggle" id="setWriteDescription" type="button"></button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.keep_video">Keep video after audio extract</div>
+                <div class="ytp-field-hint">--keep-video</div>
+              </div>
+              <button class="ytp-toggle" id="setKeepVideo" type="button"></button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.cookies">Cookies from browser</div>
+                <div class="ytp-field-hint">--cookies-from-browser · for age-gated / member content</div>
+              </div>
+              <select class="ytp-select-native" id="setCookiesFrom">
+                <option value="" data-i18n="set.options.cookies.none">none</option>
+                <option value="chrome">Chrome</option>
+                <option value="chromium">Chromium</option>
+                <option value="edge">Edge</option>
+                <option value="brave">Brave</option>
+                <option value="firefox">Firefox</option>
+                <option value="opera">Opera</option>
+                <option value="vivaldi">Vivaldi</option>
+                <option value="safari">Safari</option>
+              </select>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.rate">Rate limit</div>
+                <div class="ytp-field-hint">-r (--limit-rate) · e.g. 5M, 500K · blank = none</div>
+              </div>
+              <input class="ytp-input ytp-set-input" id="setRateLimit" placeholder="e.g. 5M" />
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.retries">Retries on error</div>
+                <div class="ytp-field-hint">--retries N · network/fragment retries</div>
+              </div>
+              <input class="ytp-num" type="number" min="0" max="100" id="setRetries" />
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div data-i18n="set.options.extra">Extra yt-dlp args</div>
+                <div class="ytp-field-hint" data-i18n="set.options.extra_hint">Whitespace-separated, advanced use only.</div>
+              </div>
+              <input class="ytp-input ytp-set-input" id="setExtraArgs" placeholder="--cookies cookies.txt" />
+            </div>
+          </div>
+
+          <div class="ytp-settings__group">
+            <h3 data-i18n="set.group.updates">Updates</h3>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div><span data-i18n="app.brand">yt-dlp</span> <span class="ytp-mono ytp-text-3" id="setYtdlpVersion">—</span></div>
+                <div class="ytp-field-hint" id="setYtdlpHint" data-i18n="set.updates.checked">auto-updates on launch</div>
+              </div>
+              <button class="ytp-btn" id="setCheckUpdate" data-i18n="set.updates.check_now">Check now</button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div>ffmpeg <span class="ytp-mono ytp-text-3" id="setFfmpegStatus" data-i18n="set.updates.ffmpeg.checking">checking…</span></div>
+                <div class="ytp-field-hint" id="setFfmpegPath">—</div>
+              </div>
+              <span id="setFfmpegGlyph"></span>
+            </div>
+          </div>
+
+          <div class="ytp-settings__group">
+            <h3 data-i18n="set.group.appearance">Appearance</h3>
+            <div class="ytp-field">
+              <label data-i18n="set.appearance.theme">Theme</label>
+              <div class="ytp-seg" id="setTheme">
+                <button data-theme="light" type="button" data-i18n="set.theme.light">Light</button>
+                <button data-theme="dark" type="button" data-i18n="set.theme.dark">Dark</button>
+                <button data-theme="system" type="button" data-i18n="set.theme.system">System</button>
+              </div>
+            </div>
+            <div class="ytp-field">
+              <label data-i18n="set.appearance.language">Language</label>
+              <select class="ytp-select-native" id="setLocale">
+                <option value="en">English</option>
+                <option value="zh-Hant">繁體中文</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="ytp-settings__group">
+            <h3 data-i18n="set.group.privacy">Privacy</h3>
+            <div class="ytp-field">
+              <label data-i18n="set.privacy.remember">Remember URL history</label>
+              <button class="ytp-toggle" id="setRememberHistory" type="button"></button>
+            </div>
+            <div class="ytp-field">
+              <div class="ytp-field-stack">
+                <div class="ytp-text-3" style="font-size:11.5px;line-height:1.5" data-i18n="set.privacy.note">No telemetry. No accounts. Settings live next to the exe.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ytp-statusbar">
+      <button class="ytp-statusbar__chip" id="updaterChip" data-i18n-title="updater.title" title="Recheck yt-dlp">
+        <span id="updaterGlyph" class="ytp-statusbar__dot"></span>
+        <span id="updaterText" data-i18n="updater.starting">starting…</span>
+      </button>
+      <span class="ytp-statusbar__push"></span>
+      <span class="ytp-statusbar__item" id="outputPathItem">
+        <span class="ytp-text-3">↓</span>
+        <span id="outputPathText">—</span>
+      </span>
+    </div>
+  </div>
+
+  <script src="locales.js"></script>
+  <script src="main.js" type="module"></script>
+</body>
+</html>

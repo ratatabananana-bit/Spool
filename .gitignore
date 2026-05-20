@@ -1,0 +1,25 @@
+# Rust / Cargo
+/src-tauri/target/
+/src-tauri/gen/
+**/*.rs.bk
+
+# Node / npm (unused in this project, but in case)
+node_modules/
+
+# Tauri sidecar binaries — downloaded by scripts/fetch-binaries.ps1
+# Too big for git (~190 MB); shipped via GitHub Release instead.
+/src-tauri/binaries/*.exe
+
+# Build output / dist
+/dist/
+
+# Per-user / per-session runtime state
+debug.log
+settings.json
+settings.local.json
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
