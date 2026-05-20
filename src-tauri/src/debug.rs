@@ -1,7 +1,9 @@
-// NOTE(release-strip): This module produces a verbose debug.log next to the exe.
-// Before releasing, gate every call to `dlog!` behind `#[cfg(debug_assertions)]` or
-// drop the file write path entirely. The log captures yt-dlp args, full stdout/stderr,
-// spawn errors, and event emissions — useful while iterating, but not for end users.
+// Verbose debug.log next to the exe — debug builds only. The `dlog!` macro
+// compiles to a no-op in release (see the cfg gate on each call site), so
+// the writer + helpers below are dead code in release. The allow blocks keep
+// the lint clean instead of stripping the symbols entirely.
+
+#![allow(dead_code, unused_imports)]
 
 use parking_lot::Mutex;
 use std::fs::{File, OpenOptions};

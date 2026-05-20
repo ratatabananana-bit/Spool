@@ -198,6 +198,36 @@ fn ffmpeg_status() -> serde_json::Value {
 }
 
 #[tauri::command]
+fn open_file(path: String) -> Result<(), String> {
+    // ShellExecute via cmd's `start ""` — opens the file with its default app.
+    // If the recorded path no longer exists (yt-dlp post-processing changed
+    // the extension, user moved the file, etc.), fall back to opening the
+    // parent directory in Explorer rather than showing a Windows "file not
+    // found" dialog.
+    use std::os::windows::process::CommandExt;
+    use std::path::Path;
+    use std::process::Command;
+
+    let p = Path::new(&path);
+    if p.is_file() {
+        Command::new("cmd")
+            .args(["/c", "start", "", &path])
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    } else if let Some(dir) = p.parent().filter(|d| d.exists()) {
+        Command::new("explorer.exe")
+            .arg(dir.as_os_str())
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    } else {
+        Err(format!("path not found: {path}"))
+    }
+}
+
+#[tauri::command]
 fn open_in_explorer(path: String) -> Result<(), String> {
     use std::process::Command;
     let p = std::path::Path::new(&path);
@@ -338,6 +368,7 @@ pub fn run() {
             set_concurrency,
             pick_folder,
             open_in_explorer,
+            open_file,
             probe_playlist,
             save_log_file,
             path_exists,

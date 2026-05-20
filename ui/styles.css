@@ -673,7 +673,10 @@ body { background: transparent; }
 .ytp-statusbar__item--ok .ytp-statusbar__dot { background: var(--ok); }
 
 .ytp-spin {
+  display: inline-block;
   width: 11px; height: 11px;
+  flex: 0 0 11px;
+  box-sizing: border-box;
   border: 1.4px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;

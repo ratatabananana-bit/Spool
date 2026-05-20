@@ -54,6 +54,8 @@ pub struct Job {
     pub rtl: bool,
     #[serde(default)]
     pub created_ms: u128,
+    #[serde(default)]
+    pub video_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -135,14 +137,22 @@ fn now_ms() -> u128 {
 
 pub fn format_to_args(fmt: &str) -> Vec<String> {
     let v = |sel: &str| vec!["-f".into(), sel.into()];
-    let audio = |ext: &str| {
-        vec![
+    // Audio extraction with per-codec max quality. MP3 goes 320K CBR (its
+    // true ceiling); other codecs use VBR-best ("0") which is already
+    // perceptually transparent or lossless.
+    let audio_q = |ext: &str, quality: Option<&str>| {
+        let mut a: Vec<String> = vec![
             "-x".into(),
             "--audio-format".into(),
             ext.into(),
             "-f".into(),
             "ba/b".into(),
-        ]
+        ];
+        if let Some(q) = quality {
+            a.push("--audio-quality".into());
+            a.push(q.into());
+        }
+        a
     };
     let merge_to = |target: &str, sel: &str| {
         vec![
@@ -191,12 +201,12 @@ pub fn format_to_args(fmt: &str) -> Vec<String> {
             "webm",
             "bv*[height<=720][ext=webm]+ba[ext=webm]/bv*[height<=720]+ba/b[height<=720]",
         ),
-        "Audio MP3" => audio("mp3"),
-        "Audio M4A" => audio("m4a"),
-        "Audio Opus" => audio("opus"),
-        "Audio WAV" => audio("wav"),
-        "Audio FLAC" => audio("flac"),
-        "Audio" => audio("mp3"),
+        "Audio MP3" => audio_q("mp3", Some("320K")),
+        "Audio M4A" => audio_q("m4a", Some("0")),
+        "Audio Opus" => audio_q("opus", Some("0")),
+        "Audio WAV" => audio_q("wav", None),
+        "Audio FLAC" => audio_q("flac", None),
+        "Audio" => audio_q("mp3", Some("320K")),
         _ => v("bv*[height<=1080]+ba/b[height<=1080]"),
     }
 }
@@ -323,6 +333,7 @@ pub fn enqueue_job(
         error_msg: None,
         rtl: false,
         created_ms: now_ms(),
+        video_id: None,
     };
     if let Some(state) = app.try_state::<Arc<JobsState>>() {
         state.records.lock().insert(id.clone(), job.clone());
@@ -447,13 +458,8 @@ fn spawn_running(
             args.push("--retries".into());
             args.push(n.to_string());
         }
-        // Audio is always extracted at best quality (`--audio-quality 0`).
-        // No user-facing knob — picking an audio preset implies highest bitrate.
-        let is_audio_mode = args.iter().any(|a| a == "-x");
-        if is_audio_mode {
-            args.push("--audio-quality".into());
-            args.push("0".into());
-        }
+        // Audio quality is now baked into each Audio preset via format_to_args,
+        // so it doesn't need a global override here.
         if let Some(extra) = s.extra_args.as_ref().filter(|v| !v.trim().is_empty()) {
             for tok in extra.split_whitespace() {
                 args.push(tok.to_string());
@@ -468,8 +474,17 @@ fn spawn_running(
     );
     args.push("--print".into());
     args.push("before_dl:META|%(id)s|%(title)s|%(uploader)s|%(filesize,filesize_approx)d".into());
+    // Three different print hooks for the final on-disk path because yt-dlp's
+    // post-processing pipeline behaves differently per format: after_move may
+    // fire for intermediate files; after_video doesn't fire for every audio
+    // extract. We capture all three (MOVE / FINAL / VIDEO) and pick the one
+    // that actually points at a real file.
     args.push("--print".into());
-    args.push("after_move:DEST|%(filepath)s".into());
+    args.push("after_move:MOVE|%(filepath)s".into());
+    args.push("--print".into());
+    args.push("after_video:FINAL|%(filepath)s".into());
+    args.push("--print".into());
+    args.push("post_process:DEST|%(filepath)s".into());
     match ffmpeg_path(app) {
         Some(ff) => {
             dlog!("[job {}] ffmpeg path: {}", id, ff);
@@ -569,6 +584,75 @@ fn spawn_running(
                     let code = payload.code.unwrap_or(-1);
                     dlog!("[job {}] terminated code={}", job_id, code);
                     let final_state = if code == 0 { "completed" } else { "failed" };
+
+                    // Filesystem scan for the actual output file. yt-dlp's stdout
+                    // mangles non-ASCII filenames (CJK, full-width brackets) on
+                    // Windows even with PYTHONUTF8 because the underlying writer
+                    // re-encodes to the legacy code page. The file on DISK is
+                    // correct though — we resolve it by matching `[<video_id>].*`
+                    // in the output directory.
+                    if final_state == "completed" {
+                        let (vid, outdir) = {
+                            let r = state_clone.records.lock();
+                            r.get(&job_id)
+                                .map(|j| (j.video_id.clone(), j.output_dir.clone()))
+                                .unwrap_or((None, String::new()))
+                        };
+                        if let Some(id) = vid {
+                            let needle = format!("[{}]", id);
+                            if let Ok(entries) = std::fs::read_dir(&outdir) {
+                                let mut best: Option<(std::path::PathBuf, u64, std::time::SystemTime)> = None;
+                                for ent in entries.flatten() {
+                                    let path = ent.path();
+                                    let name = path
+                                        .file_name()
+                                        .and_then(|n| n.to_str())
+                                        .unwrap_or("");
+                                    if !name.contains(&needle) {
+                                        continue;
+                                    }
+                                    if let Ok(meta) = ent.metadata() {
+                                        if !meta.is_file() {
+                                            continue;
+                                        }
+                                        let mtime = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
+                                        let len = meta.len();
+                                        if best.as_ref().map_or(true, |(_, _, t)| mtime > *t) {
+                                            best = Some((path, len, mtime));
+                                        }
+                                    }
+                                }
+                                if let Some((p, len, _)) = best {
+                                    let real_path = p.to_string_lossy().into_owned();
+                                    let size = human_bytes(len);
+                                    dlog!(
+                                        "[job {}] resolved via FS scan: {} ({} bytes)",
+                                        job_id,
+                                        real_path,
+                                        len
+                                    );
+                                    if let Some(rec) = state_clone.records.lock().get_mut(&job_id) {
+                                        rec.size = size.clone();
+                                    }
+                                    let _ = app_handle.emit(
+                                        "job_progress",
+                                        JobProgress {
+                                            id: job_id.clone(),
+                                            pct: 100.0,
+                                            speed: String::new(),
+                                            eta: String::new(),
+                                            size,
+                                        },
+                                    );
+                                    let _ = app_handle.emit(
+                                        "job_dest",
+                                        serde_json::json!({ "id": &job_id, "path": real_path }),
+                                    );
+                                }
+                            }
+                        }
+                    }
+
                     let final_err = if final_state == "failed" {
                         last_err
                             .clone()
@@ -673,13 +757,21 @@ fn process_line(
         return;
     }
 
-    if let Some(rest) = l.strip_prefix("DEST|") {
-        let path = rest.trim().to_string();
-        if !path.is_empty() {
-            // Final on-disk size — fill the size column even when progress hooks didn't fire.
-            let real_size = std::fs::metadata(&path)
-                .ok()
-                .map(|m| human_bytes(m.len()));
+    // Three possible path emissions from yt-dlp's pipeline. Prefer the one
+    // that resolves to an existing file on disk; FINAL beats MOVE beats DEST
+    // when multiple fire.
+    for prefix in ["FINAL|", "MOVE|", "DEST|"] {
+        if let Some(rest) = l.strip_prefix(prefix) {
+            let path = rest.trim().to_string();
+            if path.is_empty() {
+                return;
+            }
+            if !std::path::Path::new(&path).is_file() {
+                // Skip non-existent paths so we don't overwrite a good DEST
+                // with an intermediate that's already been deleted.
+                return;
+            }
+            let real_size = std::fs::metadata(&path).ok().map(|m| human_bytes(m.len()));
             if let Some(rec) = state.records.lock().get_mut(job_id) {
                 if let Some(sz) = real_size.clone() {
                     rec.size = sz;
@@ -701,13 +793,14 @@ fn process_line(
                 "job_dest",
                 serde_json::json!({ "id": job_id, "path": path }),
             );
+            return;
         }
-        return;
     }
 
     if let Some(rest) = l.strip_prefix("META|") {
         // META|<id>|<title>|<uploader>|<filesize_or_estimate>
         let parts: Vec<&str> = rest.splitn(4, '|').collect();
+        let video_id = parts.get(0).map(|s| s.to_string());
         let title = parts.get(1).map(|s| s.to_string());
         let uploader = parts.get(2).map(|s| s.to_string());
         let size_str = parts
@@ -725,6 +818,9 @@ fn process_line(
             }
             if let Some(sz) = size_str.clone() {
                 rec.size = sz;
+            }
+            if let Some(v) = video_id.clone() {
+                rec.video_id = Some(v);
             }
             rec.rtl = rtl;
         }
@@ -899,25 +995,33 @@ fn persist_jobs(app: &AppHandle, state: &Arc<JobsState>) {
 }
 
 pub fn restore_from_snapshot(app: &AppHandle, snap: Vec<Job>) {
+    // Only carry forward unfinished work. Completed/failed jobs from a previous
+    // session don't have actionable rows — restoring them just clutters the
+    // queue and inflates the "N done" summary. Their files are still on disk.
     let state = match app.try_state::<Arc<JobsState>>() {
         Some(s) => s.inner().clone(),
         None => return,
     };
     for mut j in snap {
-        // Interrupted running jobs become failed on restore.
-        if j.state == "running" {
-            j.state = "failed".into();
-            j.error_msg = Some("interrupted".into());
-            j.pct = 0.0;
-            j.speed.clear();
-            j.eta.clear();
+        let keep = match j.state.as_str() {
+            "queued" => true,
+            "running" => {
+                // Interrupted mid-download — re-queue from scratch.
+                j.state = "queued".into();
+                j.error_msg = None;
+                j.pct = 0.0;
+                j.speed.clear();
+                j.eta.clear();
+                true
+            }
+            _ => false,
+        };
+        if !keep {
+            continue;
         }
         let id = j.id.clone();
-        let state_str = j.state.clone();
         state.records.lock().insert(id.clone(), j.clone());
-        if state_str == "queued" {
-            state.queue.lock().push_back(id.clone());
-        }
+        state.queue.lock().push_back(id.clone());
         let _ = app.emit("job_added", j);
     }
     dispatch(app);

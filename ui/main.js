@@ -244,6 +244,20 @@ function wireFolder() {
   }
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
+    // Click on the leading folder icon → open the current output folder in Explorer.
+    // Click anywhere else on the pill → open the recent-folders dropdown.
+    const iconClicked = e.target.closest("svg") !== null;
+    if (iconClicked) {
+      const dir = state.settings.outputDir;
+      if (dir) {
+        invoke("open_in_explorer", { path: dir }).catch((err) =>
+          console.error("open_in_explorer", err)
+        );
+      } else {
+        flashToast(t("enqueue.no_dir"));
+      }
+      return;
+    }
     renderFolderRecent();
     if (menu.hidden) {
       place();
@@ -298,12 +312,12 @@ const ICONS = {
 };
 
 function statusGlyphHTML(stateName) {
-  if (stateName === "ok") return `<span style="color:var(--ok)">${ICONS.check}</span>`;
-  if (stateName === "err") return `<span style="color:var(--err)">${ICONS.x}</span>`;
-  if (stateName === "paused") return `<span style="color:var(--warn)">${ICONS.pause}</span>`;
+  if (stateName === "ok") return `<span style="color:var(--ok);display:inline-flex">${ICONS.check}</span>`;
+  if (stateName === "err") return `<span style="color:var(--err);display:inline-flex">${ICONS.x}</span>`;
+  if (stateName === "paused") return `<span style="color:var(--warn);display:inline-flex">${ICONS.pause}</span>`;
   if (stateName === "run")
-    return `<span style="color:var(--accent)"><i class="ytp-spin"></i></span>`;
-  return `<span style="width:8px;height:8px;border:1.5px solid var(--text-3);border-radius:50%"></span>`;
+    return `<span style="color:var(--accent);display:inline-flex"><i class="ytp-spin"></i></span>`;
+  return `<span style="display:inline-block;width:8px;height:8px;box-sizing:border-box;border:1.5px solid var(--text-3);border-radius:50%"></span>`;
 }
 
 function escapeHtml(s) {
@@ -522,6 +536,24 @@ function refreshQueueStatus() {
 
 // ── Row actions ──────────────────────────────────────────────
 function wireQueueActions() {
+  // Double-click the title of a completed row → open the file with its default app.
+  $("queueList").addEventListener("dblclick", (e) => {
+    const titleZone = e.target.closest(".ytp-row__title-wrap, .ytp-row__title");
+    if (!titleZone) return;
+    const row = titleZone.closest(".ytp-row");
+    if (!row) return;
+    const id = row.dataset.id;
+    const job = state.jobs.get(id);
+    if (!job) return;
+    if (normalizeState(job.state) !== "ok") return;
+    const dest = state.jobDests.get(id);
+    if (!dest) {
+      flashToast(t("log.empty"));
+      return;
+    }
+    invoke("open_file", { path: dest }).catch((err) => console.error("open_file", err));
+  });
+
   $("queueList").addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-act]");
     if (!btn) return;
@@ -646,7 +678,7 @@ async function enqueueRaw(urls) {
     }
   } catch (e) {
     console.error("add_jobs", e);
-    alert(t("enqueue.failed", { err: e }));
+    flashToast(t("enqueue.failed", { err: e }));
   }
 }
 
@@ -661,7 +693,7 @@ function hasListParam(url) {
 async function addUrls(urls) {
   if (!urls.length) return;
   if (!state.settings.outputDir) {
-    alert(t("enqueue.no_dir"));
+    flashToast(t("enqueue.no_dir"));
     return;
   }
 
@@ -1131,17 +1163,21 @@ function wireKeyboard() {
       return;
     }
 
-    // Ctrl+V (or Cmd+V) outside an input/textarea → paste into URL field
-    const inField = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName);
-    if ((e.ctrlKey || e.metaKey) && e.key === "v" && !inField) {
-      e.preventDefault();
-      navigator.clipboard.readText().then((txt) => {
-        const ta = $("urlInput");
-        ta.focus();
-        ta.value = (ta.value ? ta.value + "\n" : "") + txt;
-        autosize(ta);
-      }).catch((err) => console.error("clipboard read", err));
-    }
+  });
+
+  // Window-level paste handler — catches Ctrl+V (or right-click paste) when
+  // focus isn't already in an input/textarea. More reliable than reading the
+  // clipboard async; uses the synchronous ClipboardEvent data.
+  window.addEventListener("paste", (e) => {
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return; // native paste
+    const text = e.clipboardData?.getData("text");
+    if (!text) return;
+    const ta = $("urlInput");
+    ta.focus();
+    ta.value = (ta.value ? ta.value + "\n" : "") + text;
+    autosize(ta);
+    e.preventDefault();
   });
 }
 
