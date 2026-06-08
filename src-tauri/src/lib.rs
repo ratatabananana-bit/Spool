@@ -229,23 +229,30 @@ fn open_file(path: String) -> Result<(), String> {
 
 #[tauri::command]
 fn open_in_explorer(path: String) -> Result<(), String> {
+    // For a file: open its containing folder. Skipping `/select,<file>` on
+    // purpose — that switch silently fails when the path contains certain
+    // characters (Korean, full-width brackets, apostrophes in some locales)
+    // and explorer.exe falls back to Quick Access which on Win11 highlights
+    // Downloads, looking like the wrong folder opened.
+    // For a directory: open it. Create it first if it doesn't exist yet.
     use std::process::Command;
     let p = std::path::Path::new(&path);
-    if p.is_file() {
-        Command::new("explorer.exe")
-            .arg(format!("/select,{}", p.display()))
-            .spawn()
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+    let target: std::path::PathBuf = if p.is_file() {
+        p.parent()
+            .map(|d| d.to_path_buf())
+            .ok_or_else(|| format!("no parent dir for: {path}"))?
     } else {
-        // Fall back to opening the directory itself.
-        let dir = if p.is_dir() { p } else { p.parent().unwrap_or(p) };
-        Command::new("explorer.exe")
-            .arg(dir.as_os_str())
-            .spawn()
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+        p.to_path_buf()
+    };
+    if !target.exists() {
+        std::fs::create_dir_all(&target)
+            .map_err(|e| format!("cannot create {}: {e}", target.display()))?;
     }
+    Command::new("explorer.exe")
+        .arg(target.as_os_str())
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -389,7 +389,14 @@ fn spawn_running(
     } else {
         job.filename_template.clone()
     };
-    let outpath = format!("{}\\{}", job.output_dir.trim_end_matches('\\'), template);
+
+    // Make sure the output dir exists before yt-dlp tries to write into it.
+    // Without this, yt-dlp would silently fall back to cwd, leaving the file
+    // somewhere unexpected and breaking the "open in folder" action.
+    let outdir = job.output_dir.trim_end_matches('\\').to_string();
+    if !std::path::Path::new(&outdir).is_dir() {
+        let _ = std::fs::create_dir_all(&outdir);
+    }
 
     // Pull yt-dlp option settings.
     let settings_snap = app
@@ -400,8 +407,13 @@ fn spawn_running(
     args.push("--no-mtime".into());
     args.push("--newline".into());
     args.push("--no-playlist".into());
+    // -P (paths) sets the output directory separately from -o (template).
+    // Keeping them apart avoids any quoting / Unicode escape weirdness
+    // when the directory path has spaces or CJK chars.
+    args.push("-P".into());
+    args.push(outdir.clone());
     args.push("-o".into());
-    args.push(outpath);
+    args.push(template);
     args.extend(format_to_args(&job.format));
 
     if let Some(s) = settings_snap.as_ref() {
@@ -625,6 +637,20 @@ fn spawn_running(
                                 if let Some((p, len, _)) = best {
                                     let real_path = p.to_string_lossy().into_owned();
                                     let size = human_bytes(len);
+                                    // Recover the proper Unicode title from the on-disk filename.
+                                    // yt-dlp wrote it to NTFS with the right characters; only its
+                                    // stdout was mangling them.
+                                    let id_marker = format!("[{}]", id);
+                                    let filename = p
+                                        .file_name()
+                                        .and_then(|n| n.to_str())
+                                        .unwrap_or("")
+                                        .to_string();
+                                    let recovered_title = filename
+                                        .split(&id_marker)
+                                        .next()
+                                        .map(|s| s.trim().trim_end_matches(' ').to_string())
+                                        .filter(|s| !s.is_empty());
                                     dlog!(
                                         "[job {}] resolved via FS scan: {} ({} bytes)",
                                         job_id,
@@ -633,6 +659,10 @@ fn spawn_running(
                                     );
                                     if let Some(rec) = state_clone.records.lock().get_mut(&job_id) {
                                         rec.size = size.clone();
+                                        if let Some(t) = recovered_title.clone() {
+                                            rec.title = t;
+                                            rec.rtl = detect_rtl(&rec.title);
+                                        }
                                     }
                                     let _ = app_handle.emit(
                                         "job_progress",
@@ -644,6 +674,18 @@ fn spawn_running(
                                             size,
                                         },
                                     );
+                                    if let Some(t) = recovered_title.clone() {
+                                        let rtl = detect_rtl(&t);
+                                        let _ = app_handle.emit(
+                                            "job_meta",
+                                            JobMeta {
+                                                id: job_id.clone(),
+                                                title: Some(t),
+                                                host: None,
+                                                rtl: Some(rtl),
+                                            },
+                                        );
+                                    }
                                     let _ = app_handle.emit(
                                         "job_dest",
                                         serde_json::json!({ "id": &job_id, "path": real_path }),
@@ -995,33 +1037,31 @@ fn persist_jobs(app: &AppHandle, state: &Arc<JobsState>) {
 }
 
 pub fn restore_from_snapshot(app: &AppHandle, snap: Vec<Job>) {
-    // Only carry forward unfinished work. Completed/failed jobs from a previous
-    // session don't have actionable rows — restoring them just clutters the
-    // queue and inflates the "N done" summary. Their files are still on disk.
+    // Restore the full queue, including completed and failed jobs, so users
+    // see a continuous history across launches. Interrupted "running" jobs
+    // are demoted to failed (with msg) so they can be retried manually rather
+    // than auto-relaunching downloads the user may have abandoned on purpose.
     let state = match app.try_state::<Arc<JobsState>>() {
         Some(s) => s.inner().clone(),
         None => return,
     };
     for mut j in snap {
-        let keep = match j.state.as_str() {
-            "queued" => true,
+        match j.state.as_str() {
             "running" => {
-                // Interrupted mid-download — re-queue from scratch.
-                j.state = "queued".into();
-                j.error_msg = None;
+                j.state = "failed".into();
+                j.error_msg = Some("interrupted".into());
                 j.pct = 0.0;
                 j.speed.clear();
                 j.eta.clear();
-                true
             }
-            _ => false,
-        };
-        if !keep {
-            continue;
+            _ => {}
         }
         let id = j.id.clone();
+        let state_str = j.state.clone();
         state.records.lock().insert(id.clone(), j.clone());
-        state.queue.lock().push_back(id.clone());
+        if state_str == "queued" {
+            state.queue.lock().push_back(id.clone());
+        }
         let _ = app.emit("job_added", j);
     }
     dispatch(app);

@@ -250,9 +250,7 @@ function wireFolder() {
     if (iconClicked) {
       const dir = state.settings.outputDir;
       if (dir) {
-        invoke("open_in_explorer", { path: dir }).catch((err) =>
-          console.error("open_in_explorer", err)
-        );
+        invoke("open_in_explorer", { path: dir }).catch((err) => flashToast(String(err)));
       } else {
         flashToast(t("enqueue.no_dir"));
       }
@@ -369,9 +367,14 @@ function rowHTML(job) {
   const ttLog = escapeAttr(t("row.action.log"));
   const ttRemove = escapeAttr(t("row.action.remove"));
 
+  // Show the actual destination path on completed rows so it's obvious where
+  // the file landed (no guessing about which folder the open icon will open).
+  const destPath = state.jobDests.get(job.id) || "";
+  const tooltipPath = destPath || job.outputDir || "";
+
   let actions = "";
   if (ns === "ok") {
-    actions += `<button class="ytp-iconbtn" data-act="open" title="${ttOpen}">${ICONS.open}</button>`;
+    actions += `<button class="ytp-iconbtn" data-act="open" title="${escapeAttr(tooltipPath || ttOpen)}">${ICONS.open}</button>`;
     actions += `<button class="ytp-iconbtn" data-act="log" title="${ttLog}">${ICONS.log}</button>`;
     actions += `<button class="ytp-iconbtn ytp-iconbtn--danger" data-act="remove" title="${ttRemove}">${ICONS.trash}</button>`;
   } else if (ns === "err") {
@@ -402,7 +405,7 @@ function rowHTML(job) {
         <span>${escapeHtml(job.format || "")}</span>
         <span class="ytp-row__sep">·</span>
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr">${escapeHtml(
-          job.host || ""
+          ns === "ok" && tooltipPath ? tooltipPath : job.host || ""
         )}</span>
       </div>
     </div>
@@ -551,7 +554,7 @@ function wireQueueActions() {
       flashToast(t("log.empty"));
       return;
     }
-    invoke("open_file", { path: dest }).catch((err) => console.error("open_file", err));
+    invoke("open_file", { path: dest }).catch((err) => flashToast(String(err)));
   });
 
   $("queueList").addEventListener("click", (e) => {
@@ -574,7 +577,11 @@ function wireQueueActions() {
     } else if (act === "open") {
       const job = state.jobs.get(id);
       const dest = state.jobDests.get(id) || job?.outputDir || state.settings.outputDir;
-      if (dest) invoke("open_in_explorer", { path: dest });
+      if (!dest) {
+        flashToast(t("enqueue.no_dir"));
+        return;
+      }
+      invoke("open_in_explorer", { path: dest }).catch((err) => flashToast(String(err)));
     } else if (act === "log") {
       if (state.openLogId === id) {
         state.openLogId = null;
